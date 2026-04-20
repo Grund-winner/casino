@@ -1,225 +1,169 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
-interface AdminSettings {
+interface Settings {
   promo_code: string;
   site_name: string;
   description: string;
 }
 
-interface GameItem {
+interface GameEntry {
   id: string;
   slug: string;
   name: string;
-  description: string | null;
   enabled: boolean;
-  order: number;
-  iconUrl: string | null;
-  theme: string;
-  logoUrl: string | null;
+  iconUrl: string;
   badge: string;
 }
 
-const DEFAULT_SETTINGS: AdminSettings = {
-  promo_code: 'DVYS',
-  site_name: 'DVYS Predictions',
-  description: '',
-};
-
-const GAME_ICONS: Record<string, string> = {
-  luckyjet: '/icons/lucky.avif',
-  tropicana: '/icons/tropicana.avif',
-  rocketx: '/icons/rocktx.avif',
-  rocketqueen: '/icons/rocky.avif',
-  jobfox: '/icons/fox.avif',
-};
+const ALL_GAMES = [
+  { slug: 'luckyjet', name: 'Lucky Jet', icon: '/icons/lucky.avif' },
+  { slug: 'tropicana', name: 'Tropicana', icon: '/icons/tropicana.avif' },
+  { slug: 'rocketx', name: 'Rocket X', icon: '/icons/rocktx.avif' },
+  { slug: 'rocketqueen', name: 'Rocket Queen', icon: '/icons/rocky.avif' },
+  { slug: 'jobfox', name: 'JobFox', icon: '/icons/fox.avif' },
+];
 
 export default function AdminDashboard() {
-  const router = useRouter();
+  const [settings, setSettings] = useState<Settings>({ promo_code: 'DVYS', site_name: 'DVYS', description: '' });
+  const [games, setGames] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<AdminSettings>(DEFAULT_SETTINGS);
-  const [games, setGames] = useState<GameItem[]>([]);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  const showToast = useCallback((message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+  useEffect(() => {
+    fetchAdminData();
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchAdminData = async () => {
     try {
       const res = await fetch('/api/admin/settings');
-      if (!res.ok) {
-        router.push('/admin/login');
+      if (res.status === 401) {
+        window.location.href = '/admin/login';
         return;
       }
       const data = await res.json();
-      setSettings({
-        promo_code: data.settings?.promo_code || DEFAULT_SETTINGS.promo_code,
-        site_name: data.settings?.site_name || DEFAULT_SETTINGS.site_name,
-        description: data.settings?.description || DEFAULT_SETTINGS.description,
-      });
-      setGames(data.games || []);
+      if (data.settings) {
+        setSettings({
+          promo_code: data.settings.promo_code || 'DVYS',
+          site_name: data.settings.site_name || 'DVYS',
+          description: data.settings.description || '',
+        });
+      }
+      if (data.games && Array.isArray(data.games)) {
+        const map: Record<string, boolean> = {};
+        for (const g of data.games) {
+          map[g.slug] = g.enabled;
+        }
+        setGames(map);
+      }
     } catch {
-      router.push('/admin/login');
+      // ignore
     } finally {
       setLoading(false);
     }
-  }, [router]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const handleLogout = async () => {
-    await fetch('/api/admin/auth', { method: 'DELETE' });
-    router.push('/admin/login');
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setStatus(null);
     try {
+      const gamesArr = ALL_GAMES.map(g => ({ slug: g.slug, enabled: games[g.slug] !== false }));
       const res = await fetch('/api/admin/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          settings,
-          games: games.map(g => ({ slug: g.slug, enabled: g.enabled })),
-        }),
+        body: JSON.stringify({ settings, games: gamesArr }),
       });
       const data = await res.json();
       if (data.success) {
-        showToast('Parametres sauvegardes', 'success');
+        setStatus({ type: 'success', msg: 'Parametres sauvegardes' });
       } else {
-        showToast('Erreur de sauvegarde', 'error');
+        setStatus({ type: 'error', msg: data.error || 'Erreur' });
       }
     } catch {
-      showToast('Erreur serveur', 'error');
+      setStatus({ type: 'error', msg: 'Erreur de sauvegarde' });
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleGame = (slug: string) => {
-    setGames(prev => prev.map(g => g.slug === slug ? { ...g, enabled: !g.enabled } : g));
+  const handleLogout = async () => {
+    await fetch('/api/admin/auth', { method: 'DELETE' });
+    window.location.href = '/admin/login';
   };
 
   if (loading) {
-    return (
-      <div className="admin-page">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
-          <div className="loader-ring" />
-        </div>
-      </div>
-    );
+    return <div className="admin-page"><p>Chargement...</p></div>;
   }
 
   return (
     <div className="admin-page">
-      {/* Background */}
-      <div className="bg-mesh">
-        <div className="floating-orb" />
-        <div className="floating-orb" />
+      <div className="admin-header">
+        <div className="admin-title">Administration</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="admin-btn admin-btn-danger" onClick={handleLogout}>Deconnexion</button>
+        </div>
       </div>
 
-      {/* Header */}
-      <header className="admin-header">
-        <h1>Panneau Admin</h1>
-        <button className="admin-logout-btn" onClick={handleLogout}>
-          Deconnexion
-        </button>
-      </header>
+      {status && (
+        <div className={`admin-status ${status.type}`} style={{ marginBottom: 16 }}>
+          {status.msg}
+        </div>
+      )}
 
-      <main className="admin-section">
-        {/* Settings Section */}
-        <div className="admin-section-title">Parametres Generaux</div>
-
+      {/* Settings */}
+      <div className="admin-card">
+        <div className="admin-card-title">Parametres du site</div>
         <div className="admin-field">
-          <label>Code Promo</label>
+          <label>Nom du site</label>
           <input
-            type="text"
-            value={settings.promo_code}
-            onChange={e => setSettings(prev => ({ ...prev, promo_code: e.target.value }))}
+            value={settings.site_name}
+            onChange={e => setSettings(s => ({ ...s, site_name: e.target.value }))}
             placeholder="DVYS"
           />
         </div>
-
         <div className="admin-field">
-          <label>Nom du Site</label>
+          <label>Code promo</label>
           <input
-            type="text"
-            value={settings.site_name}
-            onChange={e => setSettings(prev => ({ ...prev, site_name: e.target.value }))}
-            placeholder="DVYS Predictions"
+            value={settings.promo_code}
+            onChange={e => setSettings(s => ({ ...s, promo_code: e.target.value }))}
+            placeholder="DVYS"
           />
         </div>
-
         <div className="admin-field">
           <label>Description</label>
-          <textarea
+          <input
             value={settings.description}
-            onChange={e => setSettings(prev => ({ ...prev, description: e.target.value }))}
-            placeholder="Description du site..."
+            onChange={e => setSettings(s => ({ ...s, description: e.target.value }))}
+            placeholder="Description optionnelle"
           />
         </div>
+      </div>
 
-        <button
-          className="admin-save-btn"
-          onClick={handleSave}
-          disabled={saving}
-          style={{ marginTop: 8 }}
-        >
-          {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-        </button>
-      </main>
-
-      <section className="admin-section" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="admin-section-title">Gestion des Jeux</div>
-
-        <div className="game-toggle-list">
-          {games.map(game => (
-            <div key={game.id} className="game-toggle-item">
-              <div className="game-toggle-info">
-                <img
-                  src={GAME_ICONS[game.slug] || '/icons/lucky.avif'}
-                  alt={game.name}
-                  className="admin-game-icon"
-                />
-                <div>
-                  <div className="game-toggle-name">{game.name}</div>
-                  <div className="game-toggle-slug">{game.slug}</div>
-                </div>
-              </div>
-              <div
-                className={`toggle-switch ${game.enabled ? 'active' : ''}`}
-                onClick={() => toggleGame(game.slug)}
-                role="switch"
-                aria-checked={game.enabled}
-                tabIndex={0}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleGame(game.slug); }}}
-              />
+      {/* Games */}
+      <div className="admin-card">
+        <div className="admin-card-title">Jeux actifs</div>
+        {ALL_GAMES.map(game => (
+          <div key={game.slug} className="game-toggle">
+            <div className="game-toggle-info">
+              <img className="game-toggle-icon" src={game.icon} alt={game.name} />
+              <div className="game-toggle-name">{game.name}</div>
             </div>
-          ))}
-        </div>
+            <div
+              className={`toggle-switch${games[game.slug] !== false ? ' on' : ''}`}
+              onClick={() => setGames(g => ({ ...g, [game.slug]: g[game.slug] === false ? true : false }))}
+            />
+          </div>
+        ))}
+      </div>
 
-        <button
-          className="admin-save-btn"
-          onClick={handleSave}
-          disabled={saving}
-          style={{ marginTop: 16 }}
-        >
-          {saving ? 'Sauvegarde...' : 'Sauvegarder les jeux'}
-        </button>
-      </section>
+      <button className="admin-btn admin-btn-primary" onClick={handleSave} disabled={saving} style={{ width: '100%', padding: '14px', fontSize: '15px' }}>
+        {saving ? 'Sauvegarde...' : 'Sauvegarder les modifications'}
+      </button>
 
-      <div style={{ height: 60 }} />
-
-      {/* Toast */}
-      <div className={`toast ${toast ? 'show' : ''} ${toast?.type === 'success' ? 'toast-success' : 'toast-error'}`}>
-        {toast?.message}
+      <div style={{ marginTop: 16 }}>
+        <a href="/" style={{ fontSize: 12, color: '#94a3b8', textDecoration: 'none' }}>Retour au site</a>
       </div>
     </div>
   );

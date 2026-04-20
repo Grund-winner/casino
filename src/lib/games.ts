@@ -1,101 +1,176 @@
-// Game configurations - each game has its own theme and settings
+// Game configurations - complete per-game settings
+export interface GameTheme {
+  // CSS custom properties for game page
+  '--theme-bg': string;
+  '--theme-bg-alt': string;
+  '--theme-text': string;
+  '--theme-text-dim': string;
+  '--theme-accent': string;
+  '--theme-accent-light': string;
+  '--theme-accent-dark': string;
+  '--theme-border': string;
+  '--theme-conf': string;
+  '--theme-sig-up-bg': string;
+  '--theme-sig-up-color': string;
+  '--theme-sig-up-border': string;
+  '--theme-sig-down-bg': string;
+  '--theme-sig-down-color': string;
+  '--theme-sig-down-border': string;
+  '--theme-sig-info-bg': string;
+  '--theme-sig-info-color': string;
+  '--theme-sig-info-border': string;
+  '--theme-promo-bg': string;
+  '--theme-promo-border': string;
+  '--theme-promo-accent': string;
+  '--theme-toast-bg': string;
+  '--theme-line-color': string;
+  // Prediction colors
+  predHighColor: string;
+  predHighShadow: string;
+  predMidColor: string;
+  predMidShadow: string;
+  predLowColor: string;
+  predLowShadow: string;
+}
+
 export interface GameConfig {
   slug: string;
   name: string;
   description: string;
-  theme: GameTheme;
-  logoUrl: string;
+  type: 'crash' | 'grid';
+  memKey: string;
+  logoUrl: string | null;
   iconUrl: string;
-  iconEmoji: string;
-  badge: string;
+  theme: GameTheme;
+  badge?: string;
 }
 
-export interface GameTheme {
-  bg: string;
-  bgGradient: string;
-  cardBg: string;
-  accent: string;
-  accentLight: string;
-  accentDark: string;
-  border: string;
-  textPrimary: string;
-  textSecondary: string;
-  promoAccent: string;
-}
+const violetTheme: GameTheme = {
+  '--theme-bg': '#0a0618',
+  '--theme-bg-alt': '#0d0820',
+  '--theme-text': '#ffffff',
+  '--theme-text-dim': 'rgba(255,255,255,.5)',
+  '--theme-accent': '#7100ff',
+  '--theme-accent-light': '#b388ff',
+  '--theme-accent-dark': '#4a00b3',
+  '--theme-border': 'rgba(113,0,255,.25)',
+  '--theme-conf': '#7100ff',
+  '--theme-sig-up-bg': 'rgba(0,178,75,.12)',
+  '--theme-sig-up-color': '#00ff88',
+  '--theme-sig-up-border': 'rgba(0,255,136,.15)',
+  '--theme-sig-down-bg': 'rgba(255,60,60,.12)',
+  '--theme-sig-down-color': '#ff6b6b',
+  '--theme-sig-down-border': 'rgba(255,107,107,.15)',
+  '--theme-sig-info-bg': 'rgba(113,0,255,.12)',
+  '--theme-sig-info-color': '#b388ff',
+  '--theme-sig-info-border': 'rgba(179,136,255,.15)',
+  '--theme-promo-bg': 'linear-gradient(135deg, rgba(113,0,255,.08) 0%, rgba(60,20,120,.06) 100%)',
+  '--theme-promo-border': 'rgba(113,0,255,.15)',
+  '--theme-promo-accent': '#b388ff',
+  '--theme-toast-bg': 'rgba(113,0,255,.92)',
+  '--theme-line-color': 'rgba(113,0,255,.4)',
+  predHighColor: '#ff9800',
+  predHighShadow: '0 0 30px rgba(255,152,0,.5),0 0 60px rgba(255,152,0,.2)',
+  predMidColor: '#b388ff',
+  predMidShadow: '0 0 25px rgba(179,136,255,.5),0 0 50px rgba(179,136,255,.2)',
+  predLowColor: '#64b5f6',
+  predLowShadow: '0 0 25px rgba(100,181,246,.4),0 0 50px rgba(100,181,246,.15)',
+};
 
-const themes: Record<string, GameTheme> = {
-  violet: {
-    bg: '#0a0618',
-    bgGradient: 'linear-gradient(135deg, #0a0618 0%, #1a0a2e 50%, #0a0618 100%)',
-    cardBg: 'linear-gradient(135deg, rgba(113,0,255,.08) 0%, rgba(60,20,120,.06) 100%)',
-    accent: '#7100ff',
-    accentLight: '#b388ff',
-    accentDark: '#4a00b3',
-    border: 'rgba(113,0,255,.25)',
-    textPrimary: '#ffffff',
-    textSecondary: 'rgba(255,255,255,.5)',
-    promoAccent: '#b388ff',
-  },
-  ocean: {
-    bg: '#e0f4ff',
-    bgGradient: 'linear-gradient(135deg, #e0f4ff 0%, #bae6fd 50%, #e0f4ff 100%)',
-    cardBg: 'linear-gradient(135deg, rgba(14,165,233,.06) 0%, rgba(20,184,166,.04) 100%)',
-    accent: '#0ea5e9',
-    accentLight: '#38bdf8',
-    accentDark: '#0369a1',
-    border: 'rgba(14,165,233,.2)',
-    textPrimary: '#0f172a',
-    textSecondary: 'rgba(15,23,42,.5)',
-    promoAccent: '#0ea5e9',
-  },
-  navy: {
-    bg: '#0a0f1a',
-    bgGradient: 'linear-gradient(135deg, #0a0f1a 0%, #0f1a2e 50%, #0a0f1a 100%)',
-    cardBg: 'linear-gradient(135deg, rgba(59,130,246,.08) 0%, rgba(30,58,138,.06) 100%)',
-    accent: '#3b82f6',
-    accentLight: '#60a5fa',
-    accentDark: '#1d4ed8',
-    border: 'rgba(59,130,246,.25)',
-    textPrimary: '#ffffff',
-    textSecondary: 'rgba(255,255,255,.5)',
-    promoAccent: '#60a5fa',
-  },
-  crimson: {
-    bg: '#0f0a0a',
-    bgGradient: 'linear-gradient(135deg, #0f0a0a 0%, #1a0f0f 50%, #0f0a0a 100%)',
-    cardBg: 'linear-gradient(135deg, rgba(239,68,68,.08) 0%, rgba(153,27,27,.06) 100%)',
-    accent: '#ef4444',
-    accentLight: '#f87171',
-    accentDark: '#b91c1c',
-    border: 'rgba(239,68,68,.25)',
-    textPrimary: '#ffffff',
-    textSecondary: 'rgba(255,255,255,.5)',
-    promoAccent: '#f87171',
-  },
-  emerald: {
-    bg: '#050f0a',
-    bgGradient: 'linear-gradient(135deg, #050f0a 0%, #0d1f14 50%, #050f0a 100%)',
-    cardBg: 'linear-gradient(135deg, rgba(16,185,129,.08) 0%, rgba(5,150,105,.06) 100%)',
-    accent: '#10b981',
-    accentLight: '#34d399',
-    accentDark: '#047857',
-    border: 'rgba(16,185,129,.25)',
-    textPrimary: '#ffffff',
-    textSecondary: 'rgba(255,255,255,.5)',
-    promoAccent: '#34d399',
-  },
-  amber: {
-    bg: '#0f0d05',
-    bgGradient: 'linear-gradient(135deg, #0f0d05 0%, #1a160a 50%, #0f0d05 100%)',
-    cardBg: 'linear-gradient(135deg, rgba(245,158,11,.08) 0%, rgba(180,83,9,.06) 100%)',
-    accent: '#f59e0b',
-    accentLight: '#fbbf24',
-    accentDark: '#b45309',
-    border: 'rgba(245,158,11,.25)',
-    textPrimary: '#ffffff',
-    textSecondary: 'rgba(255,255,255,.5)',
-    promoAccent: '#fbbf24',
-  },
+const oceanTheme: GameTheme = {
+  '--theme-bg': '#e0f4ff',
+  '--theme-bg-alt': 'rgba(224, 244, 255, 0.92)',
+  '--theme-text': '#0f172a',
+  '--theme-text-dim': 'rgba(15,23,42,.5)',
+  '--theme-accent': '#0ea5e9',
+  '--theme-accent-light': '#38bdf8',
+  '--theme-accent-dark': '#0369a1',
+  '--theme-border': 'rgba(14,165,233,.2)',
+  '--theme-conf': '#0ea5e9',
+  '--theme-sig-up-bg': 'rgba(20,184,166,.1)',
+  '--theme-sig-up-color': '#0d9488',
+  '--theme-sig-up-border': 'rgba(20,184,166,.15)',
+  '--theme-sig-down-bg': 'rgba(239,68,68,.08)',
+  '--theme-sig-down-color': '#dc2626',
+  '--theme-sig-down-border': 'rgba(239,68,68,.12)',
+  '--theme-sig-info-bg': 'rgba(14,165,233,.08)',
+  '--theme-sig-info-color': '#0284c7',
+  '--theme-sig-info-border': 'rgba(14,165,233,.12)',
+  '--theme-promo-bg': 'linear-gradient(135deg, rgba(14,165,233,.05) 0%, rgba(20,184,166,.04) 100%)',
+  '--theme-promo-border': 'rgba(14,165,233,.12)',
+  '--theme-promo-accent': '#0ea5e9',
+  '--theme-toast-bg': 'rgba(14,165,233,.92)',
+  '--theme-line-color': 'rgba(14,165,233,.4)',
+  predHighColor: '#f59e0b',
+  predHighShadow: '0 0 30px rgba(245,158,11,.4),0 0 60px rgba(245,158,11,.15)',
+  predMidColor: '#0ea5e9',
+  predMidShadow: '0 0 25px rgba(14,165,233,.4),0 0 50px rgba(14,165,233,.15)',
+  predLowColor: '#06b6d4',
+  predLowShadow: '0 0 25px rgba(6,182,212,.35),0 0 50px rgba(6,182,212,.12)',
+};
+
+const navyTheme: GameTheme = {
+  '--theme-bg': '#0a0f1a',
+  '--theme-bg-alt': '#0d1525',
+  '--theme-text': '#ffffff',
+  '--theme-text-dim': 'rgba(255,255,255,.5)',
+  '--theme-accent': '#1565c0',
+  '--theme-accent-light': '#42a5f5',
+  '--theme-accent-dark': '#0d47a1',
+  '--theme-border': 'rgba(66,165,245,.25)',
+  '--theme-conf': '#42a5f5',
+  '--theme-sig-up-bg': 'rgba(0,255,136,.1)',
+  '--theme-sig-up-color': '#00ff88',
+  '--theme-sig-up-border': 'rgba(0,255,136,.2)',
+  '--theme-sig-down-bg': 'rgba(255,60,60,.1)',
+  '--theme-sig-down-color': '#ff6b6b',
+  '--theme-sig-down-border': 'rgba(255,60,60,.2)',
+  '--theme-sig-info-bg': 'rgba(66,165,245,.1)',
+  '--theme-sig-info-color': '#42a5f5',
+  '--theme-sig-info-border': 'rgba(66,165,245,.2)',
+  '--theme-promo-bg': 'linear-gradient(135deg, rgba(21,101,192,.08) 0%, rgba(66,165,245,.04) 100%)',
+  '--theme-promo-border': 'rgba(21,101,192,.15)',
+  '--theme-promo-accent': '#42a5f5',
+  '--theme-toast-bg': 'rgba(21,101,192,.92)',
+  '--theme-line-color': 'rgba(66,165,245,.4)',
+  predHighColor: '#ffa500',
+  predHighShadow: '0 0 30px rgba(255,165,0,.4),0 0 60px rgba(255,165,0,.15)',
+  predMidColor: '#b388ff',
+  predMidShadow: '0 0 25px rgba(179,136,255,.4),0 0 50px rgba(179,136,255,.15)',
+  predLowColor: '#64b5f6',
+  predLowShadow: '0 0 25px rgba(100,181,246,.35),0 0 50px rgba(100,181,246,.12)',
+};
+
+const crimsonTheme: GameTheme = {
+  '--theme-bg': '#0a0618',
+  '--theme-bg-alt': '#0d0820',
+  '--theme-text': '#ffffff',
+  '--theme-text-dim': 'rgba(255,255,255,.5)',
+  '--theme-accent': '#e91e63',
+  '--theme-accent-light': '#f48fb1',
+  '--theme-accent-dark': '#c2185b',
+  '--theme-border': 'rgba(233,30,99,.25)',
+  '--theme-conf': '#e91e63',
+  '--theme-sig-up-bg': 'rgba(0,178,75,.12)',
+  '--theme-sig-up-color': '#00ff88',
+  '--theme-sig-up-border': 'rgba(0,255,136,.15)',
+  '--theme-sig-down-bg': 'rgba(255,60,60,.12)',
+  '--theme-sig-down-color': '#ff6b6b',
+  '--theme-sig-down-border': 'rgba(255,107,107,.15)',
+  '--theme-sig-info-bg': 'rgba(233,30,99,.12)',
+  '--theme-sig-info-color': '#f48fb1',
+  '--theme-sig-info-border': 'rgba(244,143,177,.15)',
+  '--theme-promo-bg': 'linear-gradient(135deg, rgba(233,30,99,.08) 0%, rgba(120,10,60,.06) 100%)',
+  '--theme-promo-border': 'rgba(233,30,99,.15)',
+  '--theme-promo-accent': '#f48fb1',
+  '--theme-toast-bg': 'rgba(233,30,99,.92)',
+  '--theme-line-color': 'rgba(233,30,99,.4)',
+  predHighColor: '#ff9800',
+  predHighShadow: '0 0 30px rgba(255,152,0,.5),0 0 60px rgba(255,152,0,.2)',
+  predMidColor: '#f48fb1',
+  predMidShadow: '0 0 25px rgba(244,143,177,.5),0 0 50px rgba(244,143,177,.2)',
+  predLowColor: '#64b5f6',
+  predLowShadow: '0 0 25px rgba(100,181,246,.4),0 0 50px rgba(100,181,246,.15)',
 };
 
 export const GAMES: GameConfig[] = [
@@ -103,50 +178,55 @@ export const GAMES: GameConfig[] = [
     slug: 'luckyjet',
     name: 'Lucky Jet',
     description: 'Prediction de crash avec intelligence DVYS',
-    theme: themes.violet,
-    logoUrl: '/icons/lucky.avif',
+    type: 'crash',
+    memKey: 'dvys_luckyjet_memory',
+    logoUrl: 'https://1play.gamedev-tech.cc/lucky_grm/assets/media/3caa6b7c2d37c3ae0bd198c86b81bb13.svg',
     iconUrl: '/icons/lucky.avif',
-    iconEmoji: '\u{1F680}',
+    theme: violetTheme,
     badge: 'HOT',
   },
   {
     slug: 'tropicana',
     name: 'Tropicana',
     description: 'Previsions dans l\'ocean tropical',
-    theme: themes.ocean,
-    logoUrl: '/icons/tropicana.avif',
+    type: 'crash',
+    memKey: 'dvys_tropicana_memory',
+    logoUrl: 'https://100hp.app/tropicana_grm/vgs/assets/main-logo.webp',
     iconUrl: '/icons/tropicana.avif',
-    iconEmoji: '\u{1F3DE}',
+    theme: oceanTheme,
     badge: 'HOT',
   },
   {
     slug: 'rocketx',
     name: 'Rocket X',
     description: 'Decollage vers les etoiles',
-    theme: themes.navy,
-    logoUrl: '/icons/rocktx.avif',
+    type: 'crash',
+    memKey: 'dvys_rocketx_memory',
+    logoUrl: null,
     iconUrl: '/icons/rocktx.avif',
-    iconEmoji: '\u{1F680}',
+    theme: navyTheme,
     badge: 'HOT',
   },
   {
     slug: 'rocketqueen',
     name: 'Rocket Queen',
     description: 'La reine des fusees',
-    theme: themes.crimson,
-    logoUrl: '/icons/rocky.avif',
+    type: 'crash',
+    memKey: 'dvys_rocketqueen_memory',
+    logoUrl: 'https://1play.gamedev-tech.cc/queen_grm/assets/rq_logo.png',
     iconUrl: '/icons/rocky.avif',
-    iconEmoji: '\u{1F451}',
+    theme: crimsonTheme,
     badge: 'NEW',
   },
   {
     slug: 'jobfox',
     name: 'JobFox',
     description: 'Jeux intelligents avec JobFox',
-    theme: themes.amber,
-    logoUrl: '/icons/fox.avif',
+    type: 'grid',
+    memKey: '',
+    logoUrl: null,
     iconUrl: '/icons/fox.avif',
-    iconEmoji: '\u{1F98A}',
+    theme: violetTheme, // Not used for grid game
     badge: 'NEW',
   },
 ];

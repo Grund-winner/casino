@@ -1,355 +1,545 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { use } from 'react';
+import { useRef, useState, useEffect, useCallback, use } from 'react';
+import { getGameBySlug } from '@/lib/games';
 
-interface PredictionResult {
+/* ================================================================
+   Types
+   ================================================================ */
+interface PredictionData {
   prediction: number;
   confidence: number;
   signals: string[];
   signalTypes: string[];
   category: string;
-  rounds: number;
+  last_rounds: number[];
+  total_rounds: number;
   avg: number;
-  std: number;
+  std_dev: number;
   accuracy: number | null;
-  lastResults?: number[];
-  error?: string;
 }
 
-interface GameState {
-  status: string;
-  lastCoef?: number;
-  waiting?: boolean;
-  timer?: number;
+interface PredictionRecord {
+  predicted: number;
+  confidence: number;
+  category: string;
+  timestamp: number;
+  validated?: boolean;
+  actual?: number;
+  hit?: boolean;
 }
 
-export default function GamePage({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = use(params);
-  const slug = resolvedParams.slug;
+interface MemoryData {
+  history: number[];
+  predictions: PredictionRecord[];
+  hits: number;
+  total: number;
+}
 
-  const [promoCode, setPromoCode] = useState('DVYS');
-  const [gameName, setGameName] = useState(slug);
-  const [theme, setTheme] = useState({
-    accent: '#7100ff',
-    accentLight: '#b388ff',
-    accentDark: '#4a00b3',
-    border: 'rgba(113,0,255,.25)',
-    cardBg: 'linear-gradient(135deg, rgba(113,0,255,.08) 0%, rgba(60,20,120,.06) 100%)',
-    promoAccent: '#b388ff',
-    bg: '#0a0618',
-    bgGradient: 'linear-gradient(135deg, #0a0618 0%, #1a0a2e 50%, #0a0618 100%)',
+/* ================================================================
+   Constants
+   ================================================================ */
+const POLL_MS = 800;
+
+/* ================================================================
+   LocalStorage helpers
+   ================================================================ */
+function loadMemory(memKey: string): MemoryData {
+  try {
+    if (typeof window === 'undefined') return { history: [], predictions: [], hits: 0, total: 0 };
+    const raw = localStorage.getItem(memKey);
+    if (!raw) return { history: [], predictions: [], hits: 0, total: 0 };
+    const m = JSON.parse(raw);
+    if (!m || !Array.isArray(m.history)) return { history: [], predictions: [], hits: 0, total: 0 };
+    return m;
+  } catch {
+    return { history: [], predictions: [], hits: 0, total: 0 };
+  }
+}
+
+function saveMemory(memKey: string, mem: MemoryData) {
+  try {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(memKey, JSON.stringify(mem));
+  } catch {
+    // silently fail
+  }
+}
+
+function recordPrediction(memKey: string, predicted: number, confidence: number, category: string) {
+  const mem = loadMemory(memKey);
+  mem.predictions.push({ predicted, confidence, category, timestamp: Date.now() });
+  if (mem.predictions.length > 200) mem.predictions = mem.predictions.slice(-200);
+  saveMemory(memKey, mem);
+}
+
+function validateLastPrediction(memKey: string, actual: number) {
+  const mem = loadMemory(memKey);
+  const preds = mem.predictions;
+  if (!preds.length) return;
+  const last = preds[preds.length - 1];
+  if (last.validated) return;
+  const actualCat = actual < 2 ? 'low' : actual < 10 ? 'mid' : 'high';
+  const hit = last.category === actualCat;
+  last.validated = true;
+  last.actual = actual;
+  last.hit = hit;
+  mem.total = (mem.total || 0) + 1;
+  if (hit) mem.hits = (mem.hits || 0) + 1;
+  saveMemory(memKey, mem);
+}
+
+function getAccuracy(memKey: string): number | null {
+  const mem = loadMemory(memKey);
+  if (!mem.total || mem.total < 3) return null;
+  return Math.round((mem.hits / mem.total) * 100);
+}
+
+function clearOldPredictions(memKey: string) {
+  const mem = loadMemory(memKey);
+  const cutoff = Date.now() - 3600000;
+  mem.predictions = mem.predictions.filter(p => p.timestamp > cutoff);
+  saveMemory(memKey, mem);
+}
+
+/* ================================================================
+   State detection helpers
+   ================================================================ */
+function walkDeep(o: unknown, fn: (obj: Record<string, unknown>) => void) {
+  const stack: unknown[] = [o];
+  while (stack.length) {
+    const x = stack.pop();
+    if (x && typeof x === 'object') {
+      fn(x as Record<string, unknown>);
+      for (const k in x) {
+        if (Object.prototype.hasOwnProperty.call(x, k)) {
+          stack.push((x as Record<string, unknown>)[k]);
+        }
+      }
+    }
+  }
+}
+
+function detectState(d: unknown): string {
+  let cs: string | null = null;
+  let cb: boolean | null = null;
+  let cn: number | null = null;
+  walkDeep(d, obj => {
+    for (const k in obj) {
+      const key = k.toLowerCase();
+      const val = obj[k];
+      if (/(state|status|phase|mode)$/.test(key)) {
+        if (typeof val === 'string' && !cs) cs = val.toLowerCase();
+        if (typeof val === 'boolean' && cb === null) cb = val;
+        if (typeof val === 'number' && cn === null) cn = val;
+      }
+      if (/(running|in_game|ingame|live)$/.test(key) && typeof val === 'boolean' && cb === null) {
+        cb = val;
+      }
+    }
   });
+  if (cb === true) return 'running';
+  if (cb === false) return 'waiting';
+  if (cs) {
+    if ('running started start flying play playing live in_game'.indexOf(cs) !== -1) return 'running';
+    if ('crashed crash ended end finished finish dead'.indexOf(cs) !== -1) return 'ended';
+    if ('waiting wait starting betting idle prepare preparing ready countdown'.indexOf(cs) !== -1) return 'waiting';
+  }
+  if (cn === 1) return 'running';
+  if (cn === 2) return 'ended';
+  if (cn === 0) return 'waiting';
+  return 'unknown';
+}
 
-  const [prediction, setPrediction] = useState<PredictionResult | null>(null);
-  const [gameState, setGameState] = useState<GameState>({ status: 'init' });
-  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
-  const [authStatus, setAuthStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [isPolling] = useState(true);
-  const [lastRoundCoef, setLastRoundCoef] = useState<number | null>(null);
+function extractRoundId(d: unknown): string | null {
+  let id: string | null = null;
+  walkDeep(d, obj => {
+    if (id) return;
+    if (obj.round_id != null) id = String(obj.round_id);
+    else if (obj.roundId != null) id = String(obj.roundId);
+    else if (obj.id != null && typeof obj.id === 'string' && obj.id.indexOf('-') !== -1) id = obj.id;
+  });
+  return id;
+}
 
-  const getInitialMemory = (): { cat: string | null; count: number } => {
-    if (typeof window === 'undefined') return { cat: null, count: 0 };
-    try {
-      const saved = localStorage.getItem(`dvys_${slug}_memory`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.cat !== undefined && parsed.count !== undefined) return parsed;
+/* ================================================================
+   Component
+   ================================================================ */
+export default function GamePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = use(params);
+  const game = getGameBySlug(slug);
+
+  // Refs
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const gameAreaRef = useRef<HTMLDivElement>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastStateRef = useRef<string | null>(null);
+  const currentRoundIdRef = useRef<string | null>(null);
+  const predictedForRoundIdRef = useRef<string | null>(null);
+  const pollingActiveRef = useRef(false);
+  const isAuthenticatedRef = useRef(false);
+
+  // State for UI
+  const [liveDotClass, setLiveDotClass] = useState('warn');
+  const [headerStatus, setHeaderStatus] = useState('Connexion...');
+  const [roundNum, setRoundNum] = useState('#0');
+  const [predVal, setPredVal] = useState('Chargement...');
+  const [predValColor, setPredValColor] = useState('');
+  const [predValShadow, setPredValShadow] = useState('');
+  const [predLoading, setPredLoading] = useState(true);
+  const [predConf, setPredConf] = useState('--%');
+  const [dataInfo, setDataInfo] = useState('');
+  const [signals, setSignals] = useState<Array<{ text: string; type: string }>>([]);
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+  const [iframeUrl, setIframeUrl] = useState('');
+
+  const memKey = game?.memKey || `dvys_${slug}_memory`;
+  const theme = game?.theme;
+
+  // Build CSS custom properties from theme
+  const themeStyle: React.CSSProperties = {};
+  if (theme) {
+    for (const [key, value] of Object.entries(theme)) {
+      if (key.startsWith('--')) {
+        (themeStyle as Record<string, string>)[key] = value;
       }
-    } catch {}
-    return { cat: null, count: 0 };
-  };
+    }
+  }
 
-  const getInitialAccuracy = (): number | null => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const saved = localStorage.getItem(`dvys_${slug}_memory`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (typeof parsed.accuracy === 'number') return parsed.accuracy;
-      }
-    } catch {}
-    return null;
-  };
-
-  const [memory, setMemory] = useState(getInitialMemory);
-  const [accuracy, setAccuracy] = useState(getInitialAccuracy);
-
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const predictCalledRef = useRef(false);
-  const lastStateRef = useRef<string>('');
-  const lastCoefRef = useRef<string | undefined>(undefined);
-  const memoryKey = `dvys_${slug}_memory`;
-  const pollStateRef = useRef<() => void>(() => {});
-
-  useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(data => {
-        if (data?.promoCode) setPromoCode(data.promoCode);
-      })
-      .catch(() => {});
+  // --- Toast ---
+  const showToast = useCallback((msg: string, ms = 3000) => {
+    setToastMsg(msg);
+    setToastVisible(true);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToastVisible(false);
+    }, ms);
   }, []);
 
-  useEffect(() => {
-    fetch(`/api/game/${slug}/auth`, { method: 'POST' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success && data.iframeUrl) {
-          setIframeUrl(data.iframeUrl);
-          setAuthStatus('ready');
-        } else {
-          setAuthStatus('error');
-        }
-      })
-      .catch(() => setAuthStatus('error'));
-  }, [slug]);
-
-  const updateMemory = useCallback((newMemory: { cat: string | null; count: number }, newAccuracy?: number | null) => {
-    setMemory(newMemory);
-    if (typeof window !== 'undefined') {
-      try {
-        const toStore: Record<string, unknown> = { ...newMemory };
-        if (newAccuracy !== undefined) toStore.accuracy = newAccuracy;
-        localStorage.setItem(memoryKey, JSON.stringify(toStore));
-      } catch {}
+  // --- Display prediction ---
+  const displayPrediction = useCallback((data: PredictionData) => {
+    const pred = parseFloat(String(data.prediction));
+    if (isNaN(pred) || pred <= 0) {
+      setPredVal('Erreur');
+      setPredValColor('#ff4444');
+      setPredValShadow('');
+      setPredLoading(false);
+      return;
     }
-  }, [memoryKey]);
 
-  const fetchPrediction = useCallback(async () => {
+    setPredVal(pred.toFixed(2) + 'x');
+    setPredLoading(false);
+
+    if (pred >= 10.0) {
+      setPredValColor(theme?.predHighColor || '#ff9800');
+      setPredValShadow(theme?.predHighShadow || '');
+    } else if (pred >= 2.0) {
+      setPredValColor(theme?.predMidColor || '#b388ff');
+      setPredValShadow(theme?.predMidShadow || '');
+    } else {
+      setPredValColor(theme?.predLowColor || '#64b5f6');
+      setPredValShadow(theme?.predLowShadow || '');
+    }
+
+    setPredConf((data.confidence || 0) + '%');
+
+    if (data.total_rounds) {
+      setRoundNum('#' + data.total_rounds);
+      setDataInfo('\u00b7 ' + data.total_rounds + ' tours');
+    }
+
+    if (data.signals && data.signals.length) {
+      const types = data.signalTypes || [];
+      const sigs = data.signals.slice(0, 6).map((s, idx) => ({
+        text: s.replace(/_/g, ' '),
+        type: types[idx] || 'info',
+      }));
+      setSignals(sigs);
+    } else {
+      setSignals([]);
+    }
+  }, [theme]);
+
+  // --- Do prediction ---
+  const doPredict = useCallback(async () => {
+    if (!isAuthenticatedRef.current) return;
+    setPredVal('Analyse...');
+    setPredLoading(true);
+
     try {
+      const mem = loadMemory(memKey);
+      const predictions = mem.predictions.map(p => ({
+        category: p.category,
+        timestamp: p.timestamp,
+      }));
+
+      const body: Record<string, unknown> = {
+        history: mem.history,
+        predictions,
+      };
+      if (mem.hits !== undefined && mem.total !== undefined) {
+        body.hits = mem.hits;
+        body.total = mem.total;
+      }
+
       const res = await fetch(`/api/game/${slug}/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memory, accuracy }),
+        body: JSON.stringify(body),
       });
+
       const data = await res.json();
-      if (!data.error) {
-        setPrediction(data);
 
-        const newCoef = data.lastResults && data.lastResults.length > 0
-          ? data.lastResults[data.lastResults.length - 1]
-          : undefined;
-
-        if (newCoef !== undefined) {
-          const cat = newCoef < 2 ? 'low' : newCoef < 10 ? 'mid' : 'high';
-          if (cat === lastCoefRef.current) {
-            const newCount = memory.count + 1;
-            const updatedMemory = { cat, count: newCount };
-            updateMemory(updatedMemory, data.accuracy);
-          } else {
-            const updatedMemory = { cat, count: 1 };
-            updateMemory(updatedMemory, data.accuracy);
-          }
-          lastCoefRef.current = cat;
-          setLastRoundCoef(newCoef);
+      if (data.status === 'ok') {
+        if (data.last_rounds && data.last_rounds.length > 0) {
+          validateLastPrediction(memKey, data.last_rounds[0]);
         }
+        if (data.history) {
+          const newMem = loadMemory(memKey);
+          newMem.history = data.history;
+          saveMemory(memKey, newMem);
+        }
+        clearOldPredictions(memKey);
+        recordPrediction(memKey, data.prediction, data.confidence, data.category);
+        displayPrediction(data);
+      } else {
+        setPredVal('Reconnexion...');
+        setPredLoading(true);
+        setTimeout(doPredict, 6000);
       }
-    } catch {}
-  }, [slug, memory, accuracy, updateMemory]);
+    } catch {
+      setPredVal('Reconnexion...');
+      setPredLoading(true);
+      setTimeout(doPredict, 6000);
+    }
+  }, [slug, memKey, displayPrediction]);
 
+  // --- Trigger prediction for round ---
+  const triggerPredictionFor = useCallback((roundId: string) => {
+    if (!roundId || predictedForRoundIdRef.current === roundId) return;
+    predictedForRoundIdRef.current = roundId;
+    doPredict();
+  }, [doPredict]);
+
+  // --- Poll game state ---
+  const poll = useCallback(async () => {
+    if (!isAuthenticatedRef.current) {
+      pollingActiveRef.current = false;
+      return;
+    }
+    try {
+      const res = await fetch(`/api/game/${slug}/state`);
+      const data = await res.json();
+      const stateNow = detectState(data);
+      const rid = extractRoundId(data) || String(Date.now());
+
+      const RUN = new Set(['running']);
+      const END = new Set(['ended']);
+      const WAIT = new Set(['waiting']);
+
+      if (RUN.has(stateNow) && rid !== currentRoundIdRef.current) {
+        currentRoundIdRef.current = rid;
+      }
+      if (lastStateRef.current && RUN.has(lastStateRef.current) && (END.has(stateNow) || WAIT.has(stateNow))) {
+        triggerPredictionFor(rid);
+      }
+      if (WAIT.has(stateNow) && predictedForRoundIdRef.current !== rid) {
+        triggerPredictionFor(rid);
+      }
+
+      if (RUN.has(stateNow)) setHeaderStatus('En vol');
+      else if (WAIT.has(stateNow)) setHeaderStatus('Attente');
+      else setHeaderStatus('Actif');
+
+      lastStateRef.current = stateNow;
+    } catch {
+      // continue polling
+    } finally {
+      pollTimerRef.current = setTimeout(poll, POLL_MS);
+    }
+  }, [slug, triggerPredictionFor]);
+
+  const startPolling = useCallback(() => {
+    if (pollingActiveRef.current) return;
+    pollingActiveRef.current = true;
+    poll();
+  }, [poll]);
+
+  // --- Scroll blocking ---
   useEffect(() => {
-    const pollState = async () => {
-      if (!isPolling) return;
-
-      try {
-        const res = await fetch(`/api/game/${slug}/state`);
-        const data = await res.json();
-
-        if (data.error) {
-          setGameState({ status: 'error' });
-          pollRef.current = setTimeout(pollState, 5000);
-          return;
-        }
-
-        const currentStatus = JSON.stringify(data);
-        const stateChanged = currentStatus !== lastStateRef.current;
-        lastStateRef.current = currentStatus;
-
-        const waiting = data.waiting === true || data.status === 'waiting';
-        const gameActive = data.status === 'playing' || data.status === 'active' || !waiting;
-
-        setGameState({
-          status: gameActive ? 'active' : 'waiting',
-          lastCoef: data.lastCoef ?? data.coef ?? data.multiplier,
-          waiting,
-          timer: data.timer,
-        });
-
-        if (waiting && stateChanged && !predictCalledRef.current) {
-          predictCalledRef.current = true;
-          await fetchPrediction();
-        }
-
-        if (gameActive && stateChanged) {
-          predictCalledRef.current = false;
-          setPrediction(null);
-        }
-      } catch {
-        setGameState({ status: 'error' });
-      }
-
-      pollRef.current = setTimeout(pollState, 3000);
+    const gameArea = gameAreaRef.current;
+    if (!gameArea) return;
+    const preventTouch = (e: TouchEvent) => e.preventDefault();
+    const preventWheel = (e: WheelEvent) => e.preventDefault();
+    gameArea.addEventListener('touchmove', preventTouch, { passive: false });
+    gameArea.addEventListener('wheel', preventWheel, { passive: false });
+    const preventGlobalTouch = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.ov-bottom')) e.preventDefault();
     };
-
-    pollStateRef.current = pollState;
-    pollState();
-  }, [slug, isPolling, fetchPrediction]);
-
-  useEffect(() => {
+    document.addEventListener('touchmove', preventGlobalTouch, { passive: false });
     return () => {
-      if (pollRef.current) clearTimeout(pollRef.current);
+      gameArea.removeEventListener('touchmove', preventTouch);
+      gameArea.removeEventListener('wheel', preventWheel);
+      document.removeEventListener('touchmove', preventGlobalTouch);
     };
   }, []);
 
-  const signalLabel = (s: string): string => {
-    const map: Record<string, string> = {
-      tendances_low: 'Tendance Basse',
-      tendances_mid: 'Tendance Moyenne',
-      tendances_high: 'Tendance Haute',
-      rotation_securite: 'Rotation Securite',
-      transition_bas_vers_mid: 'Transition Mid',
-      donnees_insuffisantes: 'Donnees insuffisantes',
+  // --- Init ---
+  useEffect(() => {
+    setHeaderStatus('Auth...');
+    const mem = loadMemory(memKey);
+    if (mem.history.length > 0) {
+      setDataInfo('\u00b7 ' + mem.history.length + ' tours');
+    }
+
+    const initApp = async () => {
+      try {
+        const acc = getAccuracy(memKey);
+        const body: Record<string, unknown> = {};
+        if (acc !== null) body.accuracy = acc;
+
+        const res = await fetch(`/api/game/${slug}/auth`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: Object.keys(body).length ? JSON.stringify(body) : '{}',
+        });
+
+        const data = await res.json();
+
+        if (data.authenticated) {
+          isAuthenticatedRef.current = true;
+          setLiveDotClass('');
+          setHeaderStatus('Actif');
+          if (data.iframeUrl) setIframeUrl(data.iframeUrl);
+          const msg = 'DVYS connect\u00e9 - Predictions actives';
+          showToast(acc !== null ? msg + ' (' + acc + '% precision)' : msg, 3500);
+          doPredict();
+          startPolling();
+        } else {
+          setHeaderStatus('Erreur');
+          setLiveDotClass('off');
+          setPredVal('--');
+          setPredLoading(false);
+          showToast('Auth \u00e9chou\u00e9e - R\u00e9essayer', 4000);
+          setTimeout(initApp, 10000);
+        }
+      } catch {
+        setHeaderStatus('Erreur');
+        setLiveDotClass('off');
+        setPredVal('--');
+        setPredLoading(false);
+        showToast('Erreur connexion', 4000);
+        setTimeout(initApp, 10000);
+      }
     };
-    if (s.startsWith('serie_')) return `Serie ${s.replace('serie_', '').replace(/_/g, ' ')}`;
-    if (s.startsWith('memoire_')) return `${s.replace('memoire_', '').replace('_', ' ')} tours`;
-    if (s.startsWith('precision_')) return `Precision ${s.replace('precision_', '')}`;
-    return map[s] || s;
-  };
+
+    initApp();
+
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      pollingActiveRef.current = false;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Set body theme
+  useEffect(() => {
+    if (theme) {
+      document.body.style.background = theme['--theme-bg'];
+      document.body.style.color = theme['--theme-text'];
+    }
+    return () => {
+      document.body.style.background = '';
+      document.body.style.color = '';
+    };
+  }, [theme]);
+
+  if (!game || game.type !== 'crash') {
+    return (
+      <div className="game-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <a href="/" style={{ color: '#0f172a', fontWeight: 700 }}>Retour au menu</a>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="game-page-container"
-      style={{
-        background: theme.bg,
-      }}
-    >
-      {/* Background Orbs */}
-      <div className="game-page-bg">
-        <div className="bg-orb" style={{ width: 300, height: 300, background: `radial-gradient(circle, ${theme.accent}44, transparent 70%)`, top: -80, left: -60 }} />
-        <div className="bg-orb" style={{ width: 250, height: 250, background: `radial-gradient(circle, ${theme.accentLight}33, transparent 70%)`, bottom: 100, right: -80, animationDelay: '-7s' }} />
-      </div>
+    <div className="game-page" style={themeStyle}>
+      <div className="game-area" ref={gameAreaRef}>
+        <iframe
+          ref={iframeRef}
+          src={iframeUrl || undefined}
+          allow="autoplay; fullscreen; clipboard-write"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation-by-user-activation"
+          scrolling="no"
+        />
 
-      {/* Top Bar */}
-      <div className="game-top-bar">
-        <a href="/" className="top-btn" aria-label="Retour">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </a>
-        <div className="top-logo">{promoCode}</div>
-        <div className="top-status">
-          <span className="live-dot" />
-          <span>Live</span>
-        </div>
-      </div>
-
-      {/* Game Content */}
-      <div className="game-iframe-wrapper">
-        {authStatus === 'loading' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 16 }}>
-            <div className="loader-ring" />
-            <div className="loader-text">Connexion...</div>
+        {/* Top Overlay */}
+        <div className="ov-top">
+          <a className="back-btn" href="/">
+            &#8592; Retour
+          </a>
+          <div className="header-center">
+            <span className="logo">DVYS</span>
+            <div className="status-row">
+              <div className={`live-dot ${liveDotClass}`} />
+              <span className="ov-status">{headerStatus}</span>
+              <span className="ov-round">{roundNum}</span>
+            </div>
           </div>
-        )}
-        {authStatus === 'error' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 40, opacity: 0.5 }}>⚠️</div>
-            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Erreur de connexion au jeu</div>
-          </div>
-        )}
-        {authStatus === 'ready' && iframeUrl && (
-          <iframe
-            src={iframeUrl}
-            allow="fullscreen"
-            allowFullScreen
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-            style={{
-              borderTop: `2px solid ${theme.accent}33`,
-            }}
-          />
-        )}
-      </div>
-
-      {/* Bottom Prediction Panel */}
-      <div className="game-bottom-panel">
-        {/* Status Bar */}
-        <div className="status-bar">
-          <span className={`status-dot ${gameState.status === 'active' ? 'green' : gameState.status === 'waiting' ? 'yellow' : 'red'}`} />
-          <span>
-            {gameState.status === 'active' ? 'En jeu' : gameState.status === 'waiting' ? 'En attente...' : 'Connexion...'}
-          </span>
-          {gameState.timer && gameState.timer > 0 && (
-            <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 12, color: theme.accentLight }}>
-              {gameState.timer}s
-            </span>
-          )}
-          {lastRoundCoef !== null && (
-            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-              Dernier: {lastRoundCoef.toFixed(2)}x
-            </span>
+          {game.logoUrl && (
+            <img className="ov-logo" src={game.logoUrl} alt={game.name} />
           )}
         </div>
 
-        {/* Prediction Card */}
-        {prediction && (
-          <div
-            className="prediction-card prediction-themed"
-            style={{
-              '--theme-accent': theme.accentLight,
-              '--theme-border': theme.border,
-              '--theme-card-bg': theme.cardBg,
-              '--theme-promo': theme.promoAccent,
-            } as React.CSSProperties}
-          >
-            <div className="prediction-header">
-              <span className="prediction-label">Prediction</span>
-              <span className="prediction-confidence" style={{
-                background: `${prediction.confidence >= 60 ? 'rgba(0,255,136,0.1)' : prediction.confidence >= 40 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)'}`,
-                color: prediction.confidence >= 60 ? '#00ff88' : prediction.confidence >= 40 ? '#f59e0b' : '#ef4444',
-                borderColor: `${prediction.confidence >= 60 ? 'rgba(0,255,136,0.2)' : prediction.confidence >= 40 ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.2)'}`,
-              }}>
-                {prediction.confidence}%
-              </span>
+        {/* Bottom Overlay */}
+        <div className="ov-bottom">
+          <div className="pred-section">
+            <div className="pred-label-row">
+              <span className="pred-tag">Prediction DVYS</span>
+              <span className="pred-data">{dataInfo}</span>
+              <span className="pred-conf">{predConf}</span>
             </div>
-
-            <div className="prediction-value" style={{ color: theme.accentLight }}>
-              {prediction.prediction.toFixed(2)}x
+            <div
+              className={`pred-multi ${predLoading ? 'loading' : ''}`}
+              style={{
+                color: predLoading ? undefined : predValColor,
+                textShadow: predLoading ? undefined : predValShadow,
+              }}
+            >
+              {predVal}
             </div>
-
-            <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-              <span>Tours: {prediction.rounds}</span>
-              <span>Moy: {prediction.avg}x</span>
-              <span>σ: {prediction.std}</span>
-            </div>
-
-            <div className="signals-container">
-              {prediction.signals.map((signal, i) => (
-                <span
-                  key={signal}
-                  className={`signal-tag ${prediction.signalTypes[i] === 'up' ? 'signal-up' : prediction.signalTypes[i] === 'down' ? 'signal-down' : 'signal-info'}`}
-                >
-                  {signalLabel(signal)}
-                </span>
+            <div className="pred-subrow">
+              {signals.map((sig, i) => (
+                <span key={i} className={`sig ${sig.type}`}>{sig.text}</span>
               ))}
             </div>
           </div>
-        )}
 
-        {!prediction && gameState.status !== 'init' && (
-          <div className="prediction-card" style={{ textAlign: 'center', padding: '20px 16px' }}>
-            <div className="loader-ring" style={{ width: 32, height: 32, borderWidth: 2, margin: '0 auto 12px' }} />
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Analyse en cours...</div>
-          </div>
-        )}
-
-        {/* Promo */}
-        <div className="game-promo" style={{ borderColor: `${theme.accent}20` }}>
-          <div className="game-promo-label">Code Promo</div>
-          <div className="game-promo-code" style={{ color: theme.promoAccent }}>
-            {promoCode}
+          <div className="promo-section">
+            <div className="promo-box">
+              <div className="promo-title">
+                L&apos;intelligence <span>DVYS</span> en action 8 modules de prediction
+              </div>
+              <div className="promo-modules">
+                <span className="promo-mod">Tendance</span>
+                <span className="promo-mod">Series</span>
+                <span className="promo-mod">Volatilite</span>
+                <span className="promo-mod">Patterns</span>
+                <span className="promo-mod">Markov</span>
+                <span className="promo-mod">Mean Rev.</span>
+                <span className="promo-mod">Cycles</span>
+                <span className="promo-mod">Momentum</span>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+
+      <div className={`toast ${toastVisible ? 'show' : ''}`}>
+        {toastMsg}
       </div>
     </div>
   );

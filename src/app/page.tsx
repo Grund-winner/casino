@@ -1,204 +1,161 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { GAMES, getGameBySlug } from '@/lib/games';
+import { useState, useEffect, useRef } from 'react';
 
-interface Settings {
-  promoCode: string;
-  siteName: string;
+interface GameCard {
+  slug: string;
+  name: string;
+  iconUrl: string;
+  description: string;
+  badge?: string;
 }
 
-export default function HomePage() {
-  const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [settings, setSettings] = useState<Settings>({ promoCode: 'DVYS', siteName: 'DVYS Predictions' });
-  const [enabledGames, setEnabledGames] = useState<string[]>([]);
+const GAMES: GameCard[] = [
+  { slug: 'luckyjet', name: 'Lucky Jet', iconUrl: '/icons/lucky.avif', description: 'Prediction de crash', badge: 'HOT' },
+  { slug: 'tropicana', name: 'Tropicana', iconUrl: '/icons/tropicana.avif', description: 'Ocean tropical', badge: 'HOT' },
+  { slug: 'rocketx', name: 'Rocket X', iconUrl: '/icons/rocktx.avif', description: 'Vers les etoiles', badge: 'HOT' },
+  { slug: 'rocketqueen', name: 'Rocket Queen', iconUrl: '/icons/rocky.avif', description: 'La reine des fusees', badge: 'NEW' },
+  { slug: 'jobfox', name: 'JobFox', iconUrl: '/icons/fox.avif', description: 'Grille intelligente', badge: 'NEW' },
+];
+
+export default function Home() {
+  const [loaded, setLoaded] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [siteName, setSiteName] = useState('DVYS');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
+    // Fetch public settings
     fetch('/api/settings')
       .then(r => r.json())
       .then(data => {
-        if (data?.promoCode) setSettings(prev => ({ ...prev, promoCode: data.promoCode }));
-        if (data?.siteName) setSettings(prev => ({ ...prev, siteName: data.siteName }));
+        if (data.promoCode) setPromoCode(data.promoCode);
+        if (data.siteName) setSiteName(data.siteName);
       })
       .catch(() => {});
 
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(data => {
-        if (data?.enabledGames) setEnabledGames(data.enabledGames);
-      })
-      .catch(() => {});
+    setTimeout(() => setLoaded(true), 600);
   }, []);
 
-  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  useEffect(() => {
+    checkScroll();
+  }, [loaded]);
 
-  const handleCardTilt = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
-    const card = e.currentTarget;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = ((y - centerY) / centerY) * -5;
-    const rotateY = ((x - centerX) / centerX) * 5;
-    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02)`;
-    card.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`);
-    card.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
-  }, []);
+  const checkScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 5);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 5);
+  };
 
-  const handleCardReset = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.currentTarget.style.transform = '';
-  }, []);
-
-  const visibleGames = enabledGames.length > 0
-    ? GAMES.filter(g => enabledGames.includes(g.slug))
-    : GAMES;
+  const scrollBy = (dir: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 280, behavior: 'smooth' });
+    setTimeout(checkScroll, 350);
+  };
 
   return (
-    <>
-      {/* Loading Screen */}
-      <div className={`loading-screen ${!loading ? 'hidden' : ''}`}>
-        <div className="loader-ring" />
-        <div className="loader-text">DVYS</div>
-      </div>
+    <div className={`home${loaded ? ' loaded' : ''}`}>
+      {/* Background gradient */}
+      <div className="home-bg" />
 
-      {/* App Container */}
-      <div className="app-container">
-        {/* Animated Background */}
-        <div className="bg-mesh">
-          <div className="floating-orb" />
-          <div className="floating-orb" />
-          <div className="floating-orb" />
-          <div className="floating-orb" />
+      {/* Header */}
+      <header className="home-header">
+        <div className="header-logo">
+          <span className="logo-text">{siteName}</span>
+          <span className="logo-sub">AI Predictions</span>
         </div>
+        <div className="header-dots">
+          <span className="dot active" />
+          <span className="dot" />
+          <span className="dot" />
+        </div>
+      </header>
 
-        {/* Hero Section */}
-        <div className="hero-section" style={{ opacity: loading ? 0 : 1, transition: 'opacity 0.5s ease 0.3s' }}>
-          <div className="avatar-circle">
-            {settings.promoCode.charAt(0)}
-          </div>
-          <div className="hero-info">
-            <div className="brand-name">{settings.siteName.toUpperCase()}</div>
-            <div className="hero-status">
-              <span className="live-dot" />
-              <span>En ligne</span>
-            </div>
-          </div>
-          <button className="hamburger-btn" onClick={() => setSidebarOpen(true)} aria-label="Menu">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
+      {/* Promo banner */}
+      {promoCode && (
+        <div className="promo-banner">
+          <div className="promo-label">Code promo</div>
+          <div className="promo-code">{promoCode}</div>
+          <button
+            className="promo-copy"
+            onClick={() => {
+              navigator.clipboard.writeText(promoCode);
+            }}
+          >
+            Copier
           </button>
         </div>
+      )}
 
-        {/* Stats Bar */}
-        <div className="stats-bar" style={{ opacity: loading ? 0 : 1, transition: 'opacity 0.5s ease 0.4s' }}>
-          <div className="stat-chip">
-            <span className="dot" />
-            {visibleGames.length} Jeux
-          </div>
-          <div className="stat-chip">
-            <span className="dot dot-amber" />
-            Actif
-          </div>
-          <div className="stat-chip">
-            v2.0
-          </div>
+      {/* Game carousel */}
+      <section className="games-section">
+        <div className="section-header">
+          <h2 className="section-title">Jeux disponibles</h2>
+          <span className="section-count">{GAMES.length} jeux</span>
         </div>
 
-        {/* Section Heading */}
-        <div className="section-heading" style={{ opacity: loading ? 0 : 1, transition: 'opacity 0.5s ease 0.5s' }}>
-          <h2>Jeux Disponibles</h2>
-          <div className="line" />
-        </div>
+        <div className="carousel-wrapper">
+          <button
+            className={`carousel-arrow left${canScrollLeft ? '' : ' hidden'}`}
+            onClick={() => scrollBy(-1)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
 
-        {/* Game Grid */}
-        <div className="game-grid" style={{ opacity: loading ? 0 : 1, transition: 'opacity 0.5s ease 0.5s' }}>
-          {visibleGames.map((game, idx) => (
-            <a
-              key={game.slug}
-              href={`/jeu/${game.slug}`}
-              className="game-card slide-up"
-              style={{ animationDelay: `${0.6 + idx * 0.1}s` }}
-              onMouseMove={handleCardTilt}
-              onMouseLeave={handleCardReset}
-            >
-              <span className={`badge ${game.badge === 'NEW' ? 'badge-new' : 'badge-hot'}`}>
-                {game.badge}
-              </span>
-              <div className="game-icon game-icon-gradient" style={{ background: game.theme.cardBg, borderColor: game.theme.border }}>
-                <img src={game.iconUrl} alt={game.name} className="game-icon-img" />
-              </div>
-              <div className="game-name">{game.name}</div>
-              <div className="game-desc">{game.description}</div>
-              <button className="open-btn" style={{ background: `linear-gradient(135deg, ${game.theme.accent}, ${game.theme.accentDark})`, boxShadow: `0 4px 15px ${game.theme.accent}40` }}>
-                OUVRIR
-              </button>
-            </a>
-          ))}
-        </div>
-
-        {/* Promo Banner */}
-        <div className="promo-banner" style={{ opacity: loading ? 0 : 1, transition: 'opacity 0.5s ease 0.8s' }}>
-          <div className="promo-content">
-            <div className="promo-label">Code Promo</div>
-            <div className="promo-code">{settings.promoCode}</div>
+          <div className="carousel-track" ref={scrollRef} onScroll={checkScroll}>
+            {GAMES.map((game, i) => (
+              <a
+                key={game.slug}
+                href={`/jeu/${game.slug}`}
+                className="game-card"
+                style={{ animationDelay: `${i * 0.1}s` }}
+              >
+                <div className="card-image-wrap">
+                  <img src={game.iconUrl} alt={game.name} className="card-image" />
+                  <div className="card-overlay" />
+                </div>
+                <div className="card-info">
+                  <h3 className="card-name">{game.name}</h3>
+                  <p className="card-desc">{game.description}</p>
+                  <div className="card-footer">
+                    <span className="card-badge">{game.badge}</span>
+                    <span className="card-arrow">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </span>
+                  </div>
+                </div>
+              </a>
+            ))}
           </div>
-        </div>
 
-        {/* Bottom spacer */}
-        <div style={{ height: 40 }} />
-      </div>
-
-      {/* Sidebar Overlay */}
-      <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={closeSidebar} />
-
-      {/* Sidebar */}
-      <nav className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-brand">{settings.siteName}</div>
-          <button className="sidebar-close" onClick={closeSidebar} aria-label="Fermer">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+          <button
+            className={`carousel-arrow right${canScrollRight ? '' : ' hidden'}`}
+            onClick={() => scrollBy(1)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
           </button>
         </div>
-        <div className="sidebar-nav">
-          <a href="/" className="sidebar-link" onClick={closeSidebar}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-            Accueil
-          </a>
-          {GAMES.map(game => (
-            <a key={game.slug} href={`/jeu/${game.slug}`} className="sidebar-link" onClick={closeSidebar}>
-              <img src={game.iconUrl} alt={game.name} className="sidebar-icon" />
-              {game.name}
-            </a>
+      </section>
+
+      {/* Bottom modules info */}
+      <section className="modules-section">
+        <div className="modules-title">L&apos;intelligence DVYS en action</div>
+        <div className="modules-grid">
+          {['Tendance', 'Series', 'Volatilite', 'Patterns', 'Markov', 'Mean Rev.', 'Cycles', 'Momentum'].map(m => (
+            <span key={m} className="module-chip">{m}</span>
           ))}
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '8px 0' }} />
-          <a href="/admin" className="sidebar-link" onClick={closeSidebar}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
-            </svg>
-            Administration
-          </a>
         </div>
-        <div className="sidebar-footer">
-          {settings.siteName} &copy; {new Date().getFullYear()}
-        </div>
-      </nav>
-    </>
+      </section>
+
+      {/* Admin link */}
+      <footer className="home-footer">
+        <a href="/admin" className="admin-link">Administration</a>
+        <span className="footer-version">v2.0</span>
+      </footer>
+    </div>
   );
 }

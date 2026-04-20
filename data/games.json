@@ -1,0 +1,7 @@
+[
+  { "id": "1", "slug": "luckyjet", "name": "Lucky Jet", "description": "Prediction de crash avec intelligence DVYS", "enabled": true, "order": 1, "iconUrl": "/icons/lucky.avif", "theme": "violet", "logoUrl": "/icons/lucky.avif", "badge": "HOT" },
+  { "id": "2", "slug": "tropicana", "name": "Tropicana", "description": "Previsions dans l'ocean tropical", "enabled": true, "order": 2, "iconUrl": "/icons/tropicana.avif", "theme": "ocean", "logoUrl": "/icons/tropicana.avif", "badge": "HOT" },
+  { "id": "3", "slug": "rocketx", "name": "Rocket X", "description": "Decollage vers les etoiles", "enabled": true, "order": 3, "iconUrl": "/icons/rocktx.avif", "theme": "navy", "logoUrl": "/icons/rocktx.avif", "badge": "HOT" },
+  { "id": "4", "slug": "rocketqueen", "name": "Rocket Queen", "description": "La reine des fusees", "enabled": true, "order": 4, "iconUrl": "/icons/rocky.avif", "theme": "crimson", "logoUrl": "/icons/rocky.avif", "badge": "NEW" },
+  { "id": "5", "slug": "jobfox", "name": "JobFox", "description": "Jeux intelligents avec JobFox", "enabled": true, "order": 5, "iconUrl": "/icons/fox.avif", "theme": "amber", "logoUrl": "/icons/fox.avif", "badge": "NEW" }
+]
