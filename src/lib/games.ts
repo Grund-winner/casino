@@ -5,6 +5,7 @@ export interface GameConfig {
   description: string;
   theme: GameTheme;
   logoUrl: string;
+  iconUrl: string;
   iconEmoji: string;
   badge: string;
 }
@@ -103,7 +104,8 @@ export const GAMES: GameConfig[] = [
     name: 'Lucky Jet',
     description: 'Prediction de crash avec intelligence DVYS',
     theme: themes.violet,
-    logoUrl: 'https://1play.gamedev-tech.cc/lucky_grm/assets/media/3caa6b7c2d37c3ae0bd198c86b81bb13.svg',
+    logoUrl: '/icons/lucky.avif',
+    iconUrl: '/icons/lucky.avif',
     iconEmoji: '\u{1F680}',
     badge: 'HOT',
   },
@@ -112,7 +114,8 @@ export const GAMES: GameConfig[] = [
     name: 'Tropicana',
     description: 'Previsions dans l\'ocean tropical',
     theme: themes.ocean,
-    logoUrl: 'https://100hp.app/tropicana_grm/vgs/assets/main-logo.webp',
+    logoUrl: '/icons/tropicana.avif',
+    iconUrl: '/icons/tropicana.avif',
     iconEmoji: '\u{1F3DE}',
     badge: 'HOT',
   },
@@ -121,16 +124,18 @@ export const GAMES: GameConfig[] = [
     name: 'Rocket X',
     description: 'Decollage vers les etoiles',
     theme: themes.navy,
-    logoUrl: 'https://100hp.app/rocketx_grm/assets/main-logo.webp',
+    logoUrl: '/icons/rocktx.avif',
+    iconUrl: '/icons/rocktx.avif',
     iconEmoji: '\u{1F680}',
     badge: 'HOT',
   },
   {
     slug: 'rocketqueen',
     name: 'Rocket Queen',
-    description: 'La reine des fusées',
+    description: 'La reine des fusees',
     theme: themes.crimson,
-    logoUrl: '',
+    logoUrl: '/icons/rocky.avif',
+    iconUrl: '/icons/rocky.avif',
     iconEmoji: '\u{1F451}',
     badge: 'NEW',
   },
@@ -139,7 +144,8 @@ export const GAMES: GameConfig[] = [
     name: 'JobFox',
     description: 'Jeux intelligents avec JobFox',
     theme: themes.amber,
-    logoUrl: '',
+    logoUrl: '/icons/fox.avif',
+    iconUrl: '/icons/fox.avif',
     iconEmoji: '\u{1F98A}',
     badge: 'NEW',
   },

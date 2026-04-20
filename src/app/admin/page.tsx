@@ -28,12 +28,12 @@ const DEFAULT_SETTINGS: AdminSettings = {
   description: '',
 };
 
-const GAME_EMOJIS: Record<string, string> = {
-  luckyjet: '🚀',
-  tropicana: '🏖️',
-  rocketx: '🚀',
-  rocketqueen: '👑',
-  jobfox: '🦊',
+const GAME_ICONS: Record<string, string> = {
+  luckyjet: '/icons/lucky.avif',
+  tropicana: '/icons/tropicana.avif',
+  rocketx: '/icons/rocktx.avif',
+  rocketqueen: '/icons/rocky.avif',
+  jobfox: '/icons/fox.avif',
 };
 
 export default function AdminDashboard() {
@@ -183,9 +183,11 @@ export default function AdminDashboard() {
           {games.map(game => (
             <div key={game.id} className="game-toggle-item">
               <div className="game-toggle-info">
-                <div className="game-toggle-emoji">
-                  {GAME_EMOJIS[game.slug] || '🎮'}
-                </div>
+                <img
+                  src={GAME_ICONS[game.slug] || '/icons/lucky.avif'}
+                  alt={game.name}
+                  className="admin-game-icon"
+                />
                 <div>
                   <div className="game-toggle-name">{game.name}</div>
                   <div className="game-toggle-slug">{game.slug}</div>

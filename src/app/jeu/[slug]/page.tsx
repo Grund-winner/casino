@@ -78,7 +78,7 @@ export default function GamePage({ params }: { params: Promise<{ slug: string }>
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const predictCalledRef = useRef(false);
   const lastStateRef = useRef<string>('');
-  const lastCoefRef = useRef<number | undefined>(undefined);
+  const lastCoefRef = useRef<string | undefined>(undefined);
   const memoryKey = `dvys_${slug}_memory`;
   const pollStateRef = useRef<() => void>(() => {});
 
@@ -109,7 +109,7 @@ export default function GamePage({ params }: { params: Promise<{ slug: string }>
     setMemory(newMemory);
     if (typeof window !== 'undefined') {
       try {
-        const toStore = { ...newMemory };
+        const toStore: Record<string, unknown> = { ...newMemory };
         if (newAccuracy !== undefined) toStore.accuracy = newAccuracy;
         localStorage.setItem(memoryKey, JSON.stringify(toStore));
       } catch {}

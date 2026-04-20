@@ -38,7 +38,7 @@ export default function HomePage() {
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
-  const handleCardTilt = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleCardTilt = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     const card = e.currentTarget;
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -52,7 +52,7 @@ export default function HomePage() {
     card.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`);
   }, []);
 
-  const handleCardReset = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleCardReset = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     e.currentTarget.style.transform = '';
   }, []);
 
@@ -135,7 +135,7 @@ export default function HomePage() {
                 {game.badge}
               </span>
               <div className="game-icon game-icon-gradient" style={{ background: game.theme.cardBg, borderColor: game.theme.border }}>
-                <span>{game.iconEmoji}</span>
+                <img src={game.iconUrl} alt={game.name} className="game-icon-img" />
               </div>
               <div className="game-name">{game.name}</div>
               <div className="game-desc">{game.description}</div>
@@ -182,7 +182,7 @@ export default function HomePage() {
           </a>
           {GAMES.map(game => (
             <a key={game.slug} href={`/jeu/${game.slug}`} className="sidebar-link" onClick={closeSidebar}>
-              <span style={{ fontSize: 20 }}>{game.iconEmoji}</span>
+              <img src={game.iconUrl} alt={game.name} className="sidebar-icon" />
               {game.name}
             </a>
           ))}
