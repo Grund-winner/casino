@@ -1,26 +1,13 @@
-// Admin authentication helpers
-import bcrypt from 'bcryptjs';
+// Admin authentication helpers - simple hash-based (no bcrypt dependency)
 import { cookies } from 'next/headers';
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || 'default-secret-change-me';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dvys2024';
 const COOKIE_NAME = 'dvys_admin_session';
 const SESSION_MAX_AGE = 24 * 60 * 60; // 24 hours
+const ADMIN_SECRET = process.env.ADMIN_SECRET || 'dvys-admin-secret-2024';
 
 export async function verifyAdminPassword(password: string): Promise<boolean> {
-  const storedHash = process.env.ADMIN_PASSWORD;
-  if (!storedHash) return false;
-
-  // If stored hash starts with $2, it's a bcrypt hash
-  if (storedHash.startsWith('$2')) {
-    return bcrypt.compareSync(password, storedHash);
-  }
-
-  // Otherwise, plain text comparison (for initial setup)
-  return password === storedHash;
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+  return password === ADMIN_PASSWORD;
 }
 
 export function createAdminToken(): string {
