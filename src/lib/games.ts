@@ -24,6 +24,21 @@ export interface GameTheme {
   '--theme-promo-accent': string;
   '--theme-toast-bg': string;
   '--theme-line-color': string;
+  // Pre-computed mixed colors (avoid color-mix CSS which Vercel doesn't support)
+  '--theme-bg-alt-solid': string;
+  '--theme-text-dim-solid': string;
+  '--theme-accent-bg': string;
+  '--theme-accent-light-bg': string;
+  '--theme-accent-light-border': string;
+  '--theme-accent-light-text': string;
+  '--theme-border-subtle': string;
+ '--theme-pred-bg-solid': string;
+  '--theme-pred-bg-loading': string;
+ '--theme-sig-up-solid': string;
+  '--theme-sig-down-solid': string;
+ '--theme-sig-info-solid': string;
+  '--theme-line-bg': string;
+  '--theme-line-bg-strong': string;
   // Prediction colors
   predHighColor: string;
   predHighShadow: string;
@@ -55,6 +70,20 @@ const violetTheme: GameTheme = {
   '--theme-accent-dark': '#4a00b3',
   '--theme-border': 'rgba(113,0,255,.25)',
   '--theme-conf': '#7100ff',
+  '--theme-bg-alt-solid': '#0d0820',
+  '--theme-text-dim-solid': '#808080',
+  '--theme-accent-bg': 'rgba(113,0,255,.2)',
+  '--theme-accent-light-bg': 'rgba(113,0,255,.2)',
+  '--theme-accent-light-border': 'rgba(179,136,255,.35)',
+  '--theme-accent-light-text': '#b388ff',
+  '--theme-border-subtle': 'rgba(113,0,255,.25)',
+  '--theme-pred-bg-solid': 'rgba(113,0,255,.12)',
+  '--theme-pred-bg-loading': 'rgba(255,255,255,.2)',
+  '--theme-sig-up-solid': 'rgba(0,178,75,.12)',
+  '--theme-sig-down-solid': 'rgba(255,60,60,.12)',
+ '--theme-sig-info-solid': 'rgba(113,0,255,.12)',
+  '--theme-line-bg': 'rgba(113,0,255,.4)',
+  '--theme-line-bg-strong': 'rgba(113,0,255,.5)',
   '--theme-sig-up-bg': 'rgba(0,178,75,.12)',
   '--theme-sig-up-color': '#00ff88',
   '--theme-sig-up-border': 'rgba(0,255,136,.15)',
@@ -79,7 +108,7 @@ const violetTheme: GameTheme = {
 
 const oceanTheme: GameTheme = {
   '--theme-bg': '#e0f4ff',
-  '--theme-bg-alt': 'rgba(224, 244, 255, 0.92)',
+  '--theme-bg-alt': '#e0f4ff',
   '--theme-text': '#0f172a',
   '--theme-text-dim': 'rgba(15,23,42,.5)',
   '--theme-accent': '#0ea5e9',
@@ -87,6 +116,20 @@ const oceanTheme: GameTheme = {
   '--theme-accent-dark': '#0369a1',
   '--theme-border': 'rgba(14,165,233,.2)',
   '--theme-conf': '#0ea5e9',
+  '--theme-bg-alt-solid': '#d9eef7',
+  '--theme-text-dim-solid': '#7d9098',
+  '--theme-accent-bg': 'rgba(14,165,233,.1)',
+  '--theme-accent-light-bg': 'rgba(14,165,233,.1)',
+  '--theme-accent-light-border': 'rgba(14,165,233,.25)',
+  '--theme-accent-light-text': '#0369a1',
+  '--theme-border-subtle': 'rgba(14,165,233,.2)',
+  '--theme-pred-bg-solid': 'rgba(14,165,233,.05)',
+  '--theme-pred-bg-loading': 'rgba(15,23,42,.15)',
+  '--theme-sig-up-solid': 'rgba(20,184,166,.1)',
+  '--theme-sig-down-solid': 'rgba(239,68,68,.08)',
+  '--theme-sig-info-solid': 'rgba(14,165,233,.08)',
+  '--theme-line-bg': 'rgba(14,165,233,.4)',
+  '--theme-line-bg-strong': 'rgba(14,165,233,.5)',
   '--theme-sig-up-bg': 'rgba(20,184,166,.1)',
   '--theme-sig-up-color': '#0d9488',
   '--theme-sig-up-border': 'rgba(20,184,166,.15)',

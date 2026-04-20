@@ -473,7 +473,7 @@ html, body {
   right: 0;
   height: 15%;
   z-index: 20;
-  background: linear-gradient(180deg, var(--theme-bg) 0%, var(--theme-bg-alt) 70%, color-mix(in srgb, var(--theme-bg) 92%, transparent) 100%);
+  background: linear-gradient(180deg, var(--theme-bg) 0%, var(--theme-bg-alt) 70%, rgba(10,6,24,.92) 100%);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -498,8 +498,8 @@ html, body {
   transform: translateY(-50%);
   padding: 5px 12px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--theme-accent) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-accent-light) 35%, transparent);
+  background: rgba(113,0,255,.2);
+  border: 1px solid rgba(179,136,255,.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -574,7 +574,7 @@ html, body {
 
 .ov-round {
   font-size: 8px;
-  color: color-mix(in srgb, var(--theme-text) 30%, transparent);
+  color: rgba(255,255,255,.3);
   font-weight: 600;
   margin-left: 2px;
 }
@@ -599,7 +599,7 @@ html, body {
   right: 0;
   height: 43%;
   z-index: 20;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--theme-bg) 88%, transparent) 0%, var(--theme-bg) 8%);
+  background: linear-gradient(180deg, rgba(10,6,24,.88) 0%, var(--theme-bg) 8%);
   display: flex;
   flex-direction: column;
   padding: 0 14px;
@@ -648,7 +648,7 @@ html, body {
 
 .pred-data {
   font-size: 8px;
-  color: color-mix(in srgb, var(--theme-text) 22%, transparent);
+  color: rgba(255,255,255,.22);
   font-weight: 600;
 }
 
@@ -667,7 +667,7 @@ html, body {
 }
 
 .pred-multi.loading {
-  color: color-mix(in srgb, var(--theme-text) 20%, transparent) !important;
+  color: rgba(255,255,255,.2) !important;
   animation: pulse-t 1.5s ease-in-out infinite;
   text-shadow: none !important;
 }
