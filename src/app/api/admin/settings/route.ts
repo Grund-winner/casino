@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { getSettings, getGames, updateSettings, updateGamesBulk } from '@/lib/db';
 import { getAdminSession, COOKIE_NAME } from '@/lib/admin-auth';
 
 export async function GET() {
@@ -9,16 +9,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Non autorise' }, { status: 401 });
     }
 
-    const settings = await db.setting.findMany();
-    const games = await db.game.findMany({ orderBy: { order: 'asc' } });
-
-    const settingsMap: Record<string, string> = {};
-    for (const s of settings) {
-      settingsMap[s.key] = s.value;
-    }
+    const [settings, games] = await Promise.all([getSettings(), getGames()]);
 
     return NextResponse.json({
-      settings: settingsMap,
+      settings,
       games,
     });
   } catch {
@@ -40,22 +34,11 @@ export async function PUT(request: Request) {
     };
 
     if (settings) {
-      for (const [key, value] of Object.entries(settings)) {
-        await db.setting.upsert({
-          where: { key },
-          update: { value },
-          create: { key, value },
-        });
-      }
+      await updateSettings(settings);
     }
 
     if (games && Array.isArray(games)) {
-      for (const gameUpdate of games) {
-        await db.game.updateMany({
-          where: { slug: gameUpdate.slug },
-          data: { enabled: gameUpdate.enabled },
-        });
-      }
+      await updateGamesBulk(games);
     }
 
     return NextResponse.json({ success: true });
