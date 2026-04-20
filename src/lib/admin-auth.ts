@@ -1,4 +1,4 @@
-// Admin authentication helpers - simple hash-based (no bcrypt dependency)
+// Admin authentication - simple and reliable
 import { cookies } from 'next/headers';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'dvys2024';
@@ -14,6 +14,7 @@ export function createAdminToken(): string {
   const payload = {
     exp: Date.now() + SESSION_MAX_AGE * 1000,
     secret: ADMIN_SECRET,
+    t: Date.now(),
   };
   return Buffer.from(JSON.stringify(payload)).toString('base64url');
 }
@@ -30,10 +31,15 @@ export function verifyAdminToken(token: string): boolean {
 }
 
 export async function getAdminSession(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token) return false;
-  return verifyAdminToken(token);
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIE_NAME)?.value;
+    if (!token) return false;
+    return verifyAdminToken(token);
+  } catch {
+    // In case cookies() fails (Edge runtime issues)
+    return false;
+  }
 }
 
 export async function createAdminSession(): Promise<string> {

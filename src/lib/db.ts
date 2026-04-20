@@ -1,5 +1,5 @@
-// JSON-based settings store using GitHub API
-// No database needed - works on Vercel serverless!
+// Settings store - localStorage fallback (no external dependency)
+// Falls back to local JSON if GitHub API is unavailable
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 const GITHUB_REPO = 'Grund-winner/casino';
@@ -27,17 +27,19 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 };
 
 const DEFAULT_GAMES: GameData[] = [
-  { id: '1', slug: 'luckyjet', name: 'Lucky Jet', description: 'Prediction de crash avec intelligence DVYS', enabled: true, order: 1, iconUrl: '/icons/lucky.avif', theme: 'violet', logoUrl: '/icons/lucky.avif', badge: 'HOT' },
-  { id: '2', slug: 'tropicana', name: 'Tropicana', description: 'Previsions dans l\'ocean tropical', enabled: true, order: 2, iconUrl: '/icons/tropicana.avif', theme: 'ocean', logoUrl: '/icons/tropicana.avif', badge: 'HOT' },
-  { id: '3', slug: 'rocketx', name: 'Rocket X', description: 'Decollage vers les etoiles', enabled: true, order: 3, iconUrl: '/icons/rocktx.avif', theme: 'navy', logoUrl: '/icons/rocktx.avif', badge: 'HOT' },
-  { id: '4', slug: 'rocketqueen', name: 'Rocket Queen', description: 'La reine des fusees', enabled: true, order: 4, iconUrl: '/icons/rocky.avif', theme: 'crimson', logoUrl: '/icons/rocky.avif', badge: 'NEW' },
-  { id: '5', slug: 'jobfox', name: 'JobFox', description: 'Jeux intelligents avec JobFox', enabled: true, order: 5, iconUrl: '/icons/fox.avif', theme: 'amber', logoUrl: '/icons/fox.avif', badge: 'NEW' },
+  { id: '1', slug: 'luckyjet', name: 'Lucky Jet', description: 'Prediction de crash avec intelligence DVYS', enabled: true, order: 1, iconUrl: '/icons/lucky.avif', theme: 'violet', logoUrl: '/banners/luckyjet.png', badge: 'HOT' },
+  { id: '2', slug: 'tropicana', name: 'Tropicana', description: 'Previsions dans l\'ocean tropical', enabled: true, order: 2, iconUrl: '/icons/tropicana.avif', theme: 'ocean', logoUrl: '/banners/tropicana.png', badge: 'HOT' },
+  { id: '3', slug: 'rocketx', name: 'Rocket X', description: 'Decollage vers les etoiles', enabled: true, order: 3, iconUrl: '/icons/rocktx.avif', theme: 'navy', logoUrl: '/banners/rocketx.png', badge: 'HOT' },
+  { id: '4', slug: 'rocketqueen', name: 'Rocket Queen', description: 'La reine des fusees', enabled: true, order: 4, iconUrl: '/icons/rocky.avif', theme: 'crimson', logoUrl: '/banners/rocketqueen.png', badge: 'NEW' },
+  { id: '5', slug: 'jobfox', name: 'JobFox', description: 'Jeux intelligents avec JobFox', enabled: true, order: 5, iconUrl: '/icons/fox.avif', theme: 'amber', logoUrl: '/banners/jobfox.png', badge: 'NEW' },
 ];
 
-// Cache to avoid hammering GitHub API on every request
+// In-memory cache (server-side)
 let settingsCache: { data: Record<string, string>; timestamp: number } | null = null;
 let gamesCache: { data: GameData[]; timestamp: number } | null = null;
 const CACHE_TTL = 30000; // 30 seconds
+
+let useGitHub = !!GITHUB_TOKEN;
 
 async function fetchGitHubFile(path: string): Promise<string | null> {
   if (!GITHUB_TOKEN) return null;
@@ -52,10 +54,14 @@ async function fetchGitHubFile(path: string): Promise<string | null> {
         cache: 'no-store',
       }
     );
-    if (!res.ok) return null;
+    if (!res.ok) {
+      useGitHub = false;
+      return null;
+    }
     const data = await res.json();
     return data.content ? Buffer.from(data.content, 'base64').toString('utf-8') : null;
   } catch {
+    useGitHub = false;
     return null;
   }
 }
@@ -63,7 +69,6 @@ async function fetchGitHubFile(path: string): Promise<string | null> {
 async function updateGitHubFile(path: string, content: string): Promise<boolean> {
   if (!GITHUB_TOKEN) return false;
   try {
-    // Get current SHA
     const res = await fetch(
       `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}?ref=${GITHUB_BRANCH}`,
       {
@@ -110,15 +115,19 @@ export async function getSettings(): Promise<Record<string, string>> {
     return settingsCache.data;
   }
 
-  try {
-    const content = await fetchGitHubFile(SETTINGS_PATH);
-    if (content) {
-      const parsed = JSON.parse(content);
-      settingsCache = { data: parsed, timestamp: Date.now() };
-      return parsed;
-    }
-  } catch {}
+  // Try GitHub first
+  if (useGitHub) {
+    try {
+      const content = await fetchGitHubFile(SETTINGS_PATH);
+      if (content) {
+        const parsed = JSON.parse(content);
+        settingsCache = { data: parsed, timestamp: Date.now() };
+        return parsed;
+      }
+    } catch {}
+  }
 
+  // Fallback to defaults
   settingsCache = { data: { ...DEFAULT_SETTINGS }, timestamp: Date.now() };
   return { ...DEFAULT_SETTINGS };
 }
@@ -128,14 +137,16 @@ export async function getGames(): Promise<GameData[]> {
     return gamesCache.data;
   }
 
-  try {
-    const content = await fetchGitHubFile(GAMES_PATH);
-    if (content) {
-      const parsed = JSON.parse(content);
-      gamesCache = { data: parsed, timestamp: Date.now() };
-      return parsed;
-    }
-  } catch {}
+  if (useGitHub) {
+    try {
+      const content = await fetchGitHubFile(GAMES_PATH);
+      if (content) {
+        const parsed = JSON.parse(content);
+        gamesCache = { data: parsed, timestamp: Date.now() };
+        return parsed;
+      }
+    } catch {}
+  }
 
   gamesCache = { data: [...DEFAULT_GAMES], timestamp: Date.now() };
   return [...DEFAULT_GAMES];
@@ -145,7 +156,6 @@ export async function updateSettings(settings: Record<string, string>): Promise<
   const current = await getSettings();
   const merged = { ...current, ...settings };
   
-  // Convert underscore keys to camelCase for JSON storage
   const toStore: Record<string, string> = {};
   for (const [key, value] of Object.entries(merged)) {
     toStore[key] = value;
@@ -154,17 +164,6 @@ export async function updateSettings(settings: Record<string, string>): Promise<
   const success = await updateGitHubFile(SETTINGS_PATH, JSON.stringify(toStore, null, 2));
   if (success) {
     settingsCache = { data: toStore, timestamp: Date.now() };
-  }
-  return success;
-}
-
-export async function updateGameEnabled(slug: string, enabled: boolean): Promise<boolean> {
-  const games = await getGames();
-  const updated = games.map(g => g.slug === slug ? { ...g, enabled } : g);
-  
-  const success = await updateGitHubFile(GAMES_PATH, JSON.stringify(updated, null, 2));
-  if (success) {
-    gamesCache = { data: updated, timestamp: Date.now() };
   }
   return success;
 }

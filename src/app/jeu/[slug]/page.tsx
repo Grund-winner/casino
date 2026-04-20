@@ -443,7 +443,7 @@ export default function GamePage({ params }: { params: Promise<{ slug: string }>
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
       pollingActiveRef.current = false;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Set body theme
   useEffect(() => {

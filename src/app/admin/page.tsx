@@ -8,21 +8,12 @@ interface Settings {
   description: string;
 }
 
-interface GameEntry {
-  id: string;
-  slug: string;
-  name: string;
-  enabled: boolean;
-  iconUrl: string;
-  badge: string;
-}
-
 const ALL_GAMES = [
-  { slug: 'luckyjet', name: 'Lucky Jet', icon: '/icons/lucky.avif' },
-  { slug: 'tropicana', name: 'Tropicana', icon: '/icons/tropicana.avif' },
-  { slug: 'rocketx', name: 'Rocket X', icon: '/icons/rocktx.avif' },
-  { slug: 'rocketqueen', name: 'Rocket Queen', icon: '/icons/rocky.avif' },
-  { slug: 'jobfox', name: 'JobFox', icon: '/icons/fox.avif' },
+  { slug: 'luckyjet', name: 'Lucky Jet', banner: '/banners/luckyjet.png' },
+  { slug: 'tropicana', name: 'Tropicana', banner: '/banners/tropicana.png' },
+  { slug: 'rocketx', name: 'Rocket X', banner: '/banners/rocketx.png' },
+  { slug: 'rocketqueen', name: 'Rocket Queen', banner: '/banners/rocketqueen.png' },
+  { slug: 'jobfox', name: 'JobFox', banner: '/banners/jobfox.png' },
 ];
 
 export default function AdminDashboard() {
@@ -40,7 +31,7 @@ export default function AdminDashboard() {
     try {
       const res = await fetch('/api/admin/settings');
       if (res.status === 401) {
-        window.location.href = '/admin/login';
+        window.location.replace('/admin/login');
         return;
       }
       const data = await res.json();
@@ -77,12 +68,12 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        setStatus({ type: 'success', msg: 'Parametres sauvegardes' });
+        setStatus({ type: 'success', msg: 'Parametres sauvegardes avec succes' });
       } else {
-        setStatus({ type: 'error', msg: data.error || 'Erreur' });
+        setStatus({ type: 'error', msg: data.error || 'Erreur lors de la sauvegarde' });
       }
     } catch {
-      setStatus({ type: 'error', msg: 'Erreur de sauvegarde' });
+      setStatus({ type: 'error', msg: 'Erreur de connexion au serveur' });
     } finally {
       setSaving(false);
     }
@@ -90,11 +81,15 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     await fetch('/api/admin/auth', { method: 'DELETE' });
-    window.location.href = '/admin/login';
+    window.location.replace('/admin/login');
   };
 
   if (loading) {
-    return <div className="admin-page"><p>Chargement...</p></div>;
+    return (
+      <div className="admin-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <p style={{ color: '#94a3b8', fontSize: 14 }}>Chargement...</p>
+      </div>
+    );
   }
 
   return (
@@ -147,7 +142,7 @@ export default function AdminDashboard() {
         {ALL_GAMES.map(game => (
           <div key={game.slug} className="game-toggle">
             <div className="game-toggle-info">
-              <img className="game-toggle-icon" src={game.icon} alt={game.name} />
+              <img className="game-toggle-icon" src={game.banner} alt={game.name} />
               <div className="game-toggle-name">{game.name}</div>
             </div>
             <div

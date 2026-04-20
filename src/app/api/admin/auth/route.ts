@@ -5,7 +5,7 @@ export async function DELETE() {
   const response = NextResponse.json({ success: true });
   response.cookies.set(COOKIE_NAME, '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: false,
     sameSite: 'lax',
     maxAge: 0,
     path: '/',
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const response = NextResponse.json({ success: true });
     response.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Changed: always false to avoid HTTPS-only issues
       sameSite: 'lax',
       maxAge: SESSION_MAX_AGE,
       path: '/',

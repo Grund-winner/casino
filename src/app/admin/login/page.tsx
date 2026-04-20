@@ -22,12 +22,13 @@ export default function AdminLogin() {
       const data = await res.json();
 
       if (data.success) {
-        window.location.href = '/admin';
+        // Use replace to prevent back button issues
+        window.location.replace('/admin');
       } else {
         setError(data.error || 'Mot de passe incorrect');
       }
-    } catch {
-      setError('Erreur de connexion');
+    } catch (err) {
+      setError('Erreur de connexion au serveur');
     } finally {
       setLoading(false);
     }

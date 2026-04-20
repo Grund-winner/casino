@@ -36,7 +36,7 @@ function buildGridData(cur: DiffKey): GridData {
     }
     grid.push(row);
   }
-  return grid;
+  return { rows: grid };
 }
 
 export default function JobFoxPage() {
@@ -108,14 +108,14 @@ export default function JobFoxPage() {
     const goAll = target >= d.rows;
     const t1 = setTimeout(() => {
       setShowGrid(true);
-      const totalRows = gd.length;
+      const totalRows = gd.rows.length;
       const rowsToReveal = goAll ? totalRows : Math.min(target, totalRows);
       let rowDelay = 0;
       for (let i = totalRows - 1; i >= totalRows - rowsToReveal; i--) {
         const delay = rowDelay;
         const t2 = setTimeout(() => {
           setRevealedRows(prev => prev + 1);
-          const cells = gd[i];
+          const cells = gd.rows[i];
           const isStopRow = totalRows - 1 - i === target - 1;
           const safeCells: number[] = [];
           cells.forEach((cell, ci) => { if (cell.safe) safeCells.push(ci); });
@@ -226,7 +226,7 @@ export default function JobFoxPage() {
       <div className={`jf-grid-area${showGrid ? ' show' : ''}`} ref={gaRef}>
         <div className="jf-diff-tag"><span>{d.label}</span><small>{d.ratio} \u00b7 {d.pct} de chances</small></div>
         <div className="jf-grid">
-          {gridData?.map((row, ri) => (
+          {gridData?.rows.map((row, ri) => (
             <div key={ri} className={`jf-row${ri < revealedRows ? ' visible' : ''}`}>
               {row.map((cell, ci) => {
                 const key = `${ri}-${ci}`;
